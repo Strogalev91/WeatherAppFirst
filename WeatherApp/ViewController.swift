@@ -9,21 +9,23 @@ import UIKit
 import Alamofire
 import SwiftyJSON
 
-class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSource {
+class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSource, UITextFieldDelegate {
     
     @IBOutlet weak var currentCity: UILabel!
     @IBOutlet weak var currentCityIcon: UIImageView!
     @IBOutlet weak var currentCityTemp: UILabel!
     @IBOutlet weak var tableView: UITableView!
     @IBOutlet weak var textField: UITextField!
+    @IBOutlet weak var addCityButton: UIBarButtonItem!
     @IBOutlet weak var currentRegion: UILabel!
+    @IBOutlet weak var addCityInFavourList: UIButton!
+    @IBOutlet weak var viewHidden: UIView!
     
-    var array = ["Murmansk", "Moscow", "Ekaterinburg", "Vladivostok"]
+    var array = [String]()
     var arrCity = [City]()
     
     override func viewWillAppear(_ animated: Bool) {
-        getCityDetail(name: "Екатеринбург")
-        
+        viewHidden.isHidden = false
     }
  
     // Функция анимации ячеек при появлении
@@ -40,10 +42,11 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
 
     //Функция удаления ячейки свайпом  - пока не работает
 /*
-     func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
+    func tableView(tableView: UITableView, commitEditingStyle editingStyle: UITableViewCell.EditingStyle, forRowAtIndexPath indexPath: NSIndexPath) {
+        
         if editingStyle == .delete {
-            array.remove(at: indexPath.row)
-            tableView.deleteRows(at: [indexPath], with: .bottom)
+            self.array.remove(at: indexPath.row)
+            self.tableView.deleteRowsAtIndexPaths([indexPath], withRowAnimation: .fade)
         }
     }
 */
@@ -66,11 +69,18 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         super.viewDidLoad()
         tableView.delegate = self
         tableView.dataSource = self
+        textField.delegate = self
         for cityItem in array {
             setCityArray(name: cityItem)
         }
+        getCityDetail(name: currentCity.text!)
     }
-
+    //при нажатии на кнопку enter
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        addCityAction(self)
+        return true
+    }
+    
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return arrCity.count
     }
@@ -99,14 +109,14 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
          cell.backgroundCell.image = UIImage(named: "evening")
          }
 */
-        cell.backgroundCell.image = UIImage(named: "night")
+        cell.backgroundCell.image = UIImage(named: "evening")
         return cell
     }
     
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         return 70
     }
-    
+    //Получение данных на основной город
     func getCityDetail(name: String) {
         let url = "https://api.weatherapi.com/v1/current.json?key=\(token)&q=\(name)".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
         AF.request(url as! URLConvertible, method: .get).validate().responseJSON { (response) in
@@ -114,7 +124,7 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
                 case .success(let value):
                     let json = JSON(value)
                 //Парсим нужные данные из api
-                    self.currentCity.text = name
+                    self.currentCity.text = self.textField.text!
                     self.currentCityTemp.text = json["current"]["temp_c"].stringValue
                     let iconString = "https:\(json["current"]["condition"]["icon"].stringValue)"
                     self.currentCityIcon.image = UIImage(data: try! Data(contentsOf: URL(string: iconString)!))
@@ -124,7 +134,7 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
             }
         }
     }
-    
+    //Получение данных в массив городов
     func setCityArray(name: String) {
         let url = "https://api.weatherapi.com/v1/current.json?key=\(token)&q=\(name)".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
         AF.request(url as! URLConvertible, method: .get).validate().responseJSON { (response) in
@@ -141,24 +151,29 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
                     print(error)
             }
         }
-    }
+    }//
     
+    //проверка и передача из текущего города в избранные
+    @IBAction func addCityInFavourAction(_ sender: Any) {
+        if array.contains(currentCity.text!) {
+            print("no no no")
+        } else if currentCity.text == "" {
+            return
+            print("current city is empty")
+        } else {
+            self.setCityArray(name: currentCity.text!)
+            print("city is in favour")
+        }
+    }
+    //проверка и передача из текстфилда в текущий город
     @IBAction func addCityAction(_ sender: Any) {
-        let alert = UIAlertController(title: "Добавить город", message: "", preferredStyle: .alert)
-        alert.addTextField { (textFieldAlert) in
-            textFieldAlert.placeholder = "Тверь"
+        if textField.text == "" {
+            return
         }
-        let ok = UIAlertAction(title: "OK", style: .default) { (action) in
-            if let text = alert.textFields![0].text {
-                self.setCityArray(name: text)
-            }
-        }
-        let cancel = UIAlertAction(title: "Cancel", style: .cancel, handler: nil)
-        alert.addAction(ok)
-        alert.addAction(cancel)
-        present(alert, animated: true, completion: nil)
+        self.getCityDetail(name: textField.text!)
+        viewHidden.isHidden = true
+        textField.resignFirstResponder()
     }
-    
     struct City {
         var name: String
         var temp: String
